@@ -15,6 +15,9 @@
  */
 package io.micronaut.configuration.hibernate.jpa;
 
+import io.micronaut.configuration.hibernate.jpa.proxy.InterceptedHibernateProxyFactory;
+import io.micronaut.configuration.hibernate.jpa.proxy.InterceptedHibernateProxyFactoryFactory;
+import io.micronaut.configuration.hibernate.jpa.proxy.IntrospectedHibernateBytecodeProvider;
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.annotation.ConfigurationProperties;
 import io.micronaut.context.annotation.EachProperty;
@@ -27,11 +30,17 @@ import io.micronaut.core.util.ArrayUtils;
 import io.micronaut.core.util.CollectionUtils;
 import io.micronaut.core.util.StringUtils;
 import io.micronaut.core.util.Toggleable;
+import io.micronaut.inject.BeanDefinition;
 import org.hibernate.boot.registry.BootstrapServiceRegistry;
 import org.hibernate.boot.registry.BootstrapServiceRegistryBuilder;
+import org.hibernate.boot.registry.StandardServiceInitiator;
 import org.hibernate.boot.registry.StandardServiceRegistry;
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
+import org.hibernate.bytecode.spi.BytecodeProvider;
+import org.hibernate.bytecode.spi.ProxyFactoryFactory;
 import org.hibernate.integrator.spi.Integrator;
+import org.hibernate.service.Service;
+import org.hibernate.service.spi.ServiceRegistryImplementor;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -55,6 +64,9 @@ public class JpaConfiguration {
     private Map<String, Object> jpaProperties = new HashMap<>(10);
     private List<String> mappingResources = new ArrayList<>();
     private EntityScanConfiguration entityScanConfiguration;
+
+    private String bytecodeProvider;
+    private String proxyProvider;
 
     /**
      * @param applicationContext The application context
@@ -100,6 +112,35 @@ public class JpaConfiguration {
     @SuppressWarnings("WeakerAccess")
     public StandardServiceRegistry buildStandardServiceRegistry(@Nullable Map<String, Object> additionalSettings) {
         StandardServiceRegistryBuilder standardServiceRegistryBuilder = createStandServiceRegistryBuilder(bootstrapServiceRegistry);
+
+        if (true || proxyProvider != null) {
+            standardServiceRegistryBuilder.addInitiator(new StandardServiceInitiator<ProxyFactoryFactory>() {
+                @Override
+                public ProxyFactoryFactory initiateService(Map configurationValues, ServiceRegistryImplementor registry) {
+                    return applicationContext.getBean(InterceptedHibernateProxyFactoryFactory.class);
+                }
+
+                @Override
+                public Class<ProxyFactoryFactory> getServiceInitiated() {
+                    return ProxyFactoryFactory.class;
+                }
+            });
+        }
+
+       Optional< BeanDefinition<BytecodeProvider>> bytecodeProviderBeanDefinition = applicationContext.findBeanDefinition(BytecodeProvider.class);
+        if (bytecodeProviderBeanDefinition.isPresent()) {
+            standardServiceRegistryBuilder.addInitiator(new StandardServiceInitiator<BytecodeProvider>() {
+                @Override
+                public BytecodeProvider initiateService(Map configurationValues, ServiceRegistryImplementor registry) {
+                    return applicationContext.getBean(bytecodeProviderBeanDefinition.get());
+                }
+
+                @Override
+                public Class<BytecodeProvider> getServiceInitiated() {
+                    return BytecodeProvider.class;
+                }
+            });
+        }
 
         Map<String, Object> jpaProperties = getProperties();
         if (CollectionUtils.isNotEmpty(jpaProperties)) {
