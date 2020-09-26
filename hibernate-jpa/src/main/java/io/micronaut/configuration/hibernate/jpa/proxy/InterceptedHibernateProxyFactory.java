@@ -101,8 +101,8 @@ public class InterceptedHibernateProxyFactory implements ProxyFactory, MethodInt
         // It isn't possible to override target type for executableMethod
         ExecutableMethod proxyTargetMethod = beanDefinition.getRequiredMethod(executableMethod.getMethodName(), executableMethod.getArgumentTypes());
         if (componentIdType != null && componentIdType.isMethodOf(executableMethod.getTargetMethod())) {
-            return proxyTargetMethod.invoke(lazyInitializer.getImplementation(), parameterValues);
+            return proxyTargetMethod.invoke(lazyInitializer.getIdentifier(), parameterValues);
         }
-        return proxyTargetMethod.invoke(lazyInitializer.getIdentifier(), parameterValues);
+        return proxyTargetMethod.invoke(lazyInitializer.getImplementation(), parameterValues);
     }
 }
